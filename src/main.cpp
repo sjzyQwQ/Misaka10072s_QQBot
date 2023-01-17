@@ -2,6 +2,7 @@
 #include<fstream>
 #include<vector>
 #include<string>
+#include<map>
 #include<mirai.h>
 using namespace std;
 using namespace Cyan;
@@ -35,7 +36,7 @@ int main(int argc, char* argv[])
 			<< "# Hostname (WebScoket 适配器), 默认值为 localhost" << endl << "WebSocketHostname=localhost" << endl
 			<< "# 认证流程需要的密钥" << endl << "VerifyKey=";
 		ofs.close();
-		cout << "配置文件已生成在C:\\ProgramData\\Misaka10072s_QQBot\\config.conf下，请编辑后重启Bot" << endl;
+		cout << "配置文件已生成在C:\\ProgramData\\Misaka10072s_QQBot\\config.conf，请编辑后重启Bot" << endl;
 		return 1;
 	}
 	vector<string>conf;
@@ -59,6 +60,28 @@ int main(int argc, char* argv[])
 	opts.HttpHostname.Set(conf[5]);
 	opts.WebSocketHostname.Set(conf[6]);
 	opts.VerifyKey.Set(conf[7]);
+	ifs.open("C:\\ProgramData\\Misaka10072s_QQBot\\forward.conf");
+	if (!ifs.good())
+	{
+		ofstream ofs;
+		cout << "转发规则不存在！" << endl;
+		ofs.open("C:\\ProgramData\\Misaka10072s_QQBot\\forward.conf");
+		ofs << endl;
+		ofs.close();
+		cout << "转发规则已生成在C:\\ProgramData\\Misaka10072s_QQBot\\forward.conf，可根据需要编辑后重启Bot（格式：源QQ群号->目标QQ群号）" << endl;
+	}
+	map<GID_t, vector<GID_t>>fwd;
+	while (ifs >> temp)
+	{
+		for (auto i = temp.begin(); i != temp.end(); ++i)
+		{
+			if (*i == '-')
+			{
+				fwd[GID_t(stoll(string(temp.begin(), i)))].push_back(GID_t(stoll(string(i + 2, temp.end()))));
+			}
+		}
+	}
+	ifs.close();
 	for (int i = 0; i < 4; ++i)
 	{
 		try
@@ -85,15 +108,14 @@ int main(int argc, char* argv[])
 			return 1;
 		}
 	}
-	cout << "连接成功！" << endl;
-	ifs.open("C:\\ProgramData\\Misaka10072s_QQBot\interconnection.conf");
-	ifs.close();
+	cout << "连接成功！" << endl
+		<< "Tip：关闭本程序请使用 stop 命令，否则会导致Mirai HTTP API内存泄漏" << endl;
 	bot.On<FriendMessage>([&](FriendMessage m)
 		{
 			cout << "[好友]" << m.Sender.NickName << "(" << m.Sender.QQ.ToInt64() << ")：" << m.MessageChain.GetPlainText() << endl;
-			if (bool(strstr(m.MessageChain.GetPlainText().c_str(), "帮助")))
+			if (strstr(m.MessageChain.GetPlainText().c_str(), "帮助"))
 			{
-				bot.SendMessage(m.Sender.QQ, MessageChain().Plain("Misaka10072's QQBot\n项目地址：https://github.com/sjzyQwQ/QQ-message-exchange-robot\nMirai：https://github.com/mamoe/mirai\nMirai-CPP：https://github.com/cyanray/mirai-cpp"));
+				bot.SendMessage(m.Sender.QQ, MessageChain().Plain("Misaka10072's QQBot\n项目地址：https://github.com/sjzyQwQ/Misaka10072s_QQBot\nMirai：https://github.com/mamoe/mirai\nMirai-CPP：https://github.com/cyanray/mirai-cpp"));
 			}
 		});
 	bot.On<GroupMessage>([&](GroupMessage m)
@@ -101,9 +123,16 @@ int main(int argc, char* argv[])
 			cout << "[" << m.Sender.Group.Name << "(" << m.Sender.Group.GID.ToInt64() << ")]" << m.Sender.MemberName << "(" << m.Sender.QQ.ToInt64() << ")：" << m.MessageChain.GetPlainText() << endl;
 			if (m.AtMe())
 			{
-				if (bool(strstr(m.MessageChain.GetPlainText().c_str(), "帮助")))
+				if (strstr(m.MessageChain.GetPlainText().c_str(), "帮助"))
 				{
-					bot.SendMessage(m.Sender.Group.GID, MessageChain().Plain("Misaka10072's QQBot\n项目地址：https://github.com/sjzyQwQ/QQ-message-exchange-robot\nMirai：https://github.com/mamoe/mirai\nMirai-CPP：https://github.com/cyanray/mirai-cpp"), m.MessageId());
+					bot.SendMessage(m.Sender.Group.GID, MessageChain().Plain("Misaka10072's QQBot\n项目地址：https://github.com/sjzyQwQ/Misaka10072s_QQBot\nMirai：https://github.com/mamoe/mirai\nMirai-CPP：https://github.com/cyanray/mirai-cpp"), m.MessageId());
+				}
+			}
+			if (fwd[m.Sender.Group.GID].size())
+			{
+				for (int i = 0; i < fwd[m.Sender.Group.GID].size(); ++i)
+				{
+					bot.SendMessage(fwd[m.Sender.Group.GID][i], MessageChain().Plain("[消息互通-" + m.Sender.Group.Name + "]\n" + m.Sender.MemberName + "：") + m.MessageChain);
 				}
 			}
 		});
@@ -111,6 +140,10 @@ int main(int argc, char* argv[])
 		{
 			cout << "[临时]" << m.Sender.MemberName << "(" << m.Sender.QQ.ToInt64() << ")：" << m.MessageChain.GetPlainText() << endl
 				<< "\t该用户通过 " << m.Sender.Group.Name << "(" << m.Sender.Group.GID.ToInt64() << ") 向您的Bot发起临时会话" << endl;
+			if (strstr(m.MessageChain.GetPlainText().c_str(), "帮助"))
+			{
+				bot.SendMessage(m.Sender.Group.GID, m.Sender.QQ, MessageChain().Plain("Misaka10072's QQBot\n项目地址：https://github.com/sjzyQwQ/Misaka10072s_QQBot\nMirai：https://github.com/mamoe/mirai\nMirai-CPP：https://github.com/cyanray/mirai-cpp"));
+			}
 		});
 	bot.On<BotMuteEvent>([&](BotMuteEvent e)
 		{
@@ -166,9 +199,19 @@ int main(int argc, char* argv[])
 				<< "Mirai：https://github.com/mamoe/mirai" << endl
 				<< "Mirai-CPP：https://github.com/cyanray/mirai-cpp" << endl;
 		}
+		else if (s == "help")
+		{
+			cout << "about\t输出关于信息" << endl
+				<< "help\t输出本信息" << endl
+				<< "stop\t断开连接并关闭程序" << endl;
+		}
 		else if (s == "stop")
 		{
 			break;
+		}
+		else
+		{
+			cout << "未知的命令" << endl;
 		}
 	}
 	bot.Disconnect();
