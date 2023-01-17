@@ -1,124 +1,176 @@
-// 注意: 本项目的所有源文件都必须是 UTF-8 编码
-
-// 这是一个“反撤回”机器人
-// 在群里回复 “/anti-recall enabled.” 或者 “撤回没用” 之后
-// 如果有人在群里撤回，那么机器人会把撤回的内容再发出来
-
-#include <iostream>
-#include <map>
-#include <mirai.h>
-#include "myheader.h"
+#include<iostream>
+#include<fstream>
+#include<vector>
+#include<string>
+#include<mirai.h>
 using namespace std;
 using namespace Cyan;
 
-int main()
+int main(int argc, char* argv[])
 {
 #if defined(WIN32) || defined(_WIN32)
-	// 切换代码页，让 CMD 可以显示 UTF-8 字符
 	system("chcp 65001");
 #endif
-
+	system("cls");
+	ifstream ifs;
 	MiraiBot bot;
 	SessionOptions opts;
-	opts.BotQQ = 123456789_qq;				// 请修改为你的机器人QQ
-	opts.HttpHostname = "localhost";		// 请修改为和 mirai-api-http 配置文件一致
-	opts.WebSocketHostname = "localhost";	// 同上
-	opts.HttpPort = 8080;					// 同上
-	opts.WebSocketPort = 8080;				// 同上
-	opts.VerifyKey = "VerifyKey";			// 同上
-
-	while (true)
+	ifs.open("C:\\ProgramData\\Misaka10072s_QQBot\\config.conf");
+	if (!ifs.good())
+	{
+		ofstream ofs;
+		cout << "配置文件不存在！" << endl;
+		ofs.open("C:\\ProgramData\\Misaka10072s_QQBot\\config.conf");
+		if (!ofs.good())
+		{
+			system("mkdir C:\\ProgramData\\Misaka10072s_QQBot");
+			ofs.open("C:\\ProgramData\\Misaka10072s_QQBot\\config.conf");
+		}
+		ofs << "# 与 mirai-api-http 通信的端口(Http 适配器)，默认值为 8080" << endl << "HttpPort=8080" << endl
+			<< "# 与 mirai-api-http 通信的端口(WebSocket 适配器)，默认值为 8080" << endl << "WebSocketPort=8080" << endl
+			<< "# mirai-api-http 历史消息缓存容量, 过小可能导致撤回消息失败, 默认值为 4096" << endl << "CacheSize=4096" << endl
+			<< "# mirai-cpp 线程池的容量, 建议设置为 CPU 核心数 * 3" << endl << "ThreadPoolSize=6" << endl
+			<< "# 机器人的QQ号" << endl << "BotQQ=" << endl
+			<< "# Hostname (Http 适配器), 默认值为 localhost" << endl << "HttpHostname=localhost" << endl
+			<< "# Hostname (WebScoket 适配器), 默认值为 localhost" << endl << "WebSocketHostname=localhost" << endl
+			<< "# 认证流程需要的密钥" << endl << "VerifyKey=";
+		ofs.close();
+		cout << "配置文件已生成在C:\\ProgramData\\Misaka10072s_QQBot\\config.conf下，请编辑后重启Bot" << endl;
+		return 1;
+	}
+	vector<string>conf;
+	string temp;
+	while (ifs >> temp)
+	{
+		for (auto i = temp.begin(); i != temp.end(); ++i)
+		{
+			if (*i == '=')
+			{
+				conf.push_back(string(i + 1, temp.end()));
+			}
+		}
+	}
+	ifs.close();
+	opts.HttpPort.Set(stoi(conf[0]));
+	opts.WebSocketPort.Set(stoi(conf[1]));
+	opts.CacheSize.Set(stoi(conf[2]));
+	opts.ThreadPoolSize.Set(stoi(conf[3]));
+	opts.BotQQ.Set(QQ_t(stoll(conf[4])));
+	opts.HttpHostname.Set(conf[5]);
+	opts.WebSocketHostname.Set(conf[6]);
+	opts.VerifyKey.Set(conf[7]);
+	for (int i = 0; i < 4; ++i)
 	{
 		try
 		{
-			cout << "尝试与 mirai-api-http 建立连接..." << endl;
+			if (i == 0)
+			{
+				cout << "正在连接至Mirai HTTP API……" << endl;
+			}
+			else
+			{
+				cout << "正在进行第" << i << "次重连……" << endl;
+			}
 			bot.Connect(opts);
 			break;
 		}
-		catch (const std::exception& ex)
+		catch (const exception& ex)
 		{
 			cout << ex.what() << endl;
 		}
 		MiraiBot::SleepSeconds(1);
+		if (i == 3)
+		{
+			cout << "连接失败！" << endl;
+			return 1;
+		}
 	}
-	cout << "Bot Working..." << endl;
-
-	// 用map记录哪些群启用了“反撤回”功能
-	map<GID_t, bool> groups;
-
-	bot.On<GroupMessage>(
-		[&](GroupMessage m)
+	cout << "连接成功！" << endl;
+	ifs.open("C:\\ProgramData\\Misaka10072s_QQBot\interconnection.conf");
+	ifs.close();
+	bot.On<FriendMessage>([&](FriendMessage m)
 		{
-			try
+			cout << "[好友]" << m.Sender.NickName << "(" << m.Sender.QQ.ToInt64() << ")：" << m.MessageChain.GetPlainText() << endl;
+			if (bool(strstr(m.MessageChain.GetPlainText().c_str(), "帮助")))
 			{
-				string plain = m.MessageChain.GetPlainText();
-				if (plain == "/anti-recall enabled." || plain == "撤回没用")
-				{
-					groups[m.Sender.Group.GID] = true;
-					m.Reply(MessageChain().Plain("撤回也没用，我都看到了"));
-					return;
-				}
-				if (plain == "/anti-recall disabled." || plain == "撤回有用")
-				{
-					groups[m.Sender.Group.GID] = false;
-					m.Reply(MessageChain().Plain("撤回有用"));
-					return;
-				}
-			}
-			catch (const std::exception& ex)
-			{
-				cout << ex.what() << endl;
+				bot.SendMessage(m.Sender.QQ, MessageChain().Plain("Misaka10072's QQBot\n项目地址：https://github.com/sjzyQwQ/QQ-message-exchange-robot\nMirai：https://github.com/mamoe/mirai\nMirai-CPP：https://github.com/cyanray/mirai-cpp"));
 			}
 		});
-
-
-	bot.On<GroupRecallEvent>(
-		[&](GroupRecallEvent e)
+	bot.On<GroupMessage>([&](GroupMessage m)
 		{
-			try
+			cout << "[" << m.Sender.Group.Name << "(" << m.Sender.Group.GID.ToInt64() << ")]" << m.Sender.MemberName << "(" << m.Sender.QQ.ToInt64() << ")：" << m.MessageChain.GetPlainText() << endl;
+			if (m.AtMe())
 			{
-				if (!groups[e.Group.GID]) return;
-				auto recalled_mc = bot.GetGroupMessageFromId(e.MessageId).MessageChain;
-				auto mc = "刚刚有人撤回了: " + recalled_mc;
-				bot.SendMessage(e.Group.GID, mc);
-			}
-			catch (const std::exception& ex)
-			{
-				cout << ex.what() << endl;
+				if (bool(strstr(m.MessageChain.GetPlainText().c_str(), "帮助")))
+				{
+					bot.SendMessage(m.Sender.Group.GID, MessageChain().Plain("Misaka10072's QQBot\n项目地址：https://github.com/sjzyQwQ/QQ-message-exchange-robot\nMirai：https://github.com/mamoe/mirai\nMirai-CPP：https://github.com/cyanray/mirai-cpp"), m.MessageId());
+				}
 			}
 		});
-
-	// 在失去与mah的连接后重连
-	bot.On<LostConnection>([&](LostConnection e)
+	bot.On<TempMessage>([&](TempMessage m)
 		{
-			cout << e.ErrorMessage << " (" << e.Code << ")" << endl;
-			while (true)
+			cout << "[临时]" << m.Sender.MemberName << "(" << m.Sender.QQ.ToInt64() << ")：" << m.MessageChain.GetPlainText() << endl
+				<< "\t该用户通过 " << m.Sender.Group.Name << "(" << m.Sender.Group.GID.ToInt64() << ") 向您的Bot发起临时会话" << endl;
+		});
+	bot.On<BotMuteEvent>([&](BotMuteEvent e)
+		{
+			cout << "[被禁言]您的Bot在 " << e.Operator.Group.Name << "(" << e.Operator.Group.GID.ToInt64() << ")" << " 被 " << e.Operator.MemberName << "(" << e.Operator.QQ.ToInt64() << ") 禁言";
+			if (e.DurationSeconds < 3600)
 			{
-				try
-				{
-					cout << "尝试连接 mirai-api-http..." << endl;
-					bot.Reconnect();
-					cout << "与 mirai-api-http 重新建立连接!" << endl;
-					break;
-				}
-				catch (const std::exception& ex)
-				{
-					cout << ex.what() << endl;
-				}
-				MiraiBot::SleepSeconds(1);
+				cout << e.DurationSeconds / 60 << "分钟" << endl;
+			}
+			else if (e.DurationSeconds < 86400)
+			{
+				cout << e.DurationSeconds / 3600 << "小时" << e.DurationSeconds % 3600 / 60 << "分钟" << endl;
+			}
+			else
+			{
+				cout << e.DurationSeconds / 86400 << "天" << e.DurationSeconds % 86400 / 3600 << "小时" << e.DurationSeconds % 3600 / 60 << "分钟" << endl;
 			}
 		});
-
-	string cmd;
-	while (cin >> cmd)
+	bot.On<BotUnmuteEvent>([&](BotUnmuteEvent e)
+		{
+			cout << "[被解除禁言]您的Bot在 " << e.Operator.Group.Name << "(" << e.Operator.Group.GID.ToInt64() << ")" << " 被 " << e.Operator.MemberName << "(" << e.Operator.QQ.ToInt64() << ") 解除禁言" << endl;
+		});
+	bot.On<GroupNameChangeEvent>([&](GroupNameChangeEvent e)
+		{
+			cout << "[群名称改变]群聊 " << e.OriginName << "(" << e.Group.GID.ToInt64() <<")"<< " 更名为 " << e.CurrentName << endl;
+		});
+	bot.On<GroupMuteAllEvent>([&](GroupMuteAllEvent e)
+		{
+			cout << "[群全员禁言]";
+			if (e.Current)
+			{
+				cout << e.Group.Name << "(" << e.Group.GID.ToInt64() << ") 开启了全员禁言" << endl;
+			}
+			else
+			{
+				cout << e.Group.Name << "(" << e.Group.GID.ToInt64() << ") 关闭了全员禁言" << endl;
+			}
+		});
+	bot.On<NudgeEvent>([&](NudgeEvent e)
+		{
+			if (e.Target == bot.GetBotQQ())
+			{
+				bot.SendMessage(GID_t(e.RawSubjectId), MessageChain().Plain("戳什么戳"));
+			}
+		});
+	while (true)
 	{
-		if (cmd == "exit")
+		string s;
+		cin >> s;
+		if (s == "about")
 		{
-			// 程序结束前必须调用 Disconnect，否则 mirai-api-http 会内存泄漏。
-			bot.Disconnect();
+			cout << "Misaka10072's QQBot" << endl
+				<< "项目地址：https://github.com/sjzyQwQ/Misaka10072s_QQBot" << endl
+				<< "Mirai：https://github.com/mamoe/mirai" << endl
+				<< "Mirai-CPP：https://github.com/cyanray/mirai-cpp" << endl;
+		}
+		else if (s == "stop")
+		{
 			break;
 		}
 	}
-
+	bot.Disconnect();
 	return 0;
 }
