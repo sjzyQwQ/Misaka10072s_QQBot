@@ -4,6 +4,7 @@
 #include<string>
 #include<map>
 #include<mirai.h>
+#include"messages.hpp"
 using namespace std;
 using namespace Cyan;
 
@@ -34,7 +35,10 @@ int main(int argc, char* argv[])
 			<< "# 机器人的QQ号" << endl << "BotQQ=" << endl
 			<< "# Hostname (Http 适配器), 默认值为 localhost" << endl << "HttpHostname=localhost" << endl
 			<< "# Hostname (WebScoket 适配器), 默认值为 localhost" << endl << "WebSocketHostname=localhost" << endl
-			<< "# 认证流程需要的密钥" << endl << "VerifyKey=";
+			<< "# 认证流程需要的密钥" << endl << "VerifyKey=" << endl
+			<< "# 迎新词（当Welcom=false时迎新词功能关闭）" << endl << "Welcome=false" << endl
+			<< "# 成员离开提醒（不含管理员移出，true/false）" << endl << "Leave=false" << endl;
+
 		ofs.close();
 		cout << "配置文件已生成在C:\\ProgramData\\Misaka10072s_QQBot\\bot.conf，请编辑后重启Bot" << endl;
 		return 1;
@@ -110,9 +114,11 @@ int main(int argc, char* argv[])
 	}
 	cout << "连接成功！" << endl
 		<< "Tip：关闭本程序请使用 stop 命令，否则会导致Mirai HTTP API内存泄漏" << endl;
+	map<GID_t, map<MessageId_t, vector<int64_t>>>fwd_id;
 	bot.On<FriendMessage>([&](FriendMessage m)
 		{
-			cout << "[好友]" << m.Sender.NickName << "(" << m.Sender.QQ.ToInt64() << ")：" << m.MessageChain.GetPlainText() << endl;
+			ReceiveMessage(bot, m, fwd_id);
+			cout << endl << "\tMessageId: " << m.MessageId() << endl;
 			if (strstr(m.MessageChain.GetPlainText().c_str(), "帮助"))
 			{
 				bot.SendMessage(m.Sender.QQ, MessageChain().Plain("Misaka10072's QQBot\nVer.23.1.18.dev\n项目地址：https://github.com/sjzyQwQ/Misaka10072s_QQBot\nMirai：https://github.com/mamoe/mirai\nMirai-CPP：https://github.com/cyanray/mirai-cpp"));
@@ -120,7 +126,8 @@ int main(int argc, char* argv[])
 		});
 	bot.On<GroupMessage>([&](GroupMessage m)
 		{
-			cout << "[" << m.Sender.Group.Name << "(" << m.Sender.Group.GID.ToInt64() << ")]" << m.Sender.MemberName << "(" << m.Sender.QQ.ToInt64() << ")：" << m.MessageChain.GetPlainText() << endl;
+			ReceiveMessage(bot, m, fwd_id);
+			cout << endl << "\tMessageId: " << m.MessageId() << endl;
 			if (m.AtMe())
 			{
 				if (strstr(m.MessageChain.GetPlainText().c_str(), "帮助"))
@@ -132,17 +139,28 @@ int main(int argc, char* argv[])
 			{
 				for (int i = 0; i < fwd[m.Sender.Group.GID].size(); ++i)
 				{
-					bot.SendMessage(fwd[m.Sender.Group.GID][i], MessageChain().Plain("[消息互通-" + m.Sender.Group.Name + "]\n" + m.Sender.MemberName + "：") + m.MessageChain);
+					fwd_id[m.Sender.Group.GID][m.MessageId()].push_back(int64_t(bot.SendMessage(fwd[m.Sender.Group.GID][i], MessageChain().Plain("[消息互通-" + m.Sender.Group.Name + "]\n" + m.Sender.MemberName + "：") + m.MessageChain)));
+					fwd_id[m.Sender.Group.GID][m.MessageId()].push_back(fwd[m.Sender.Group.GID][i].ToInt64());
+					cout << "\tForwardInfo: GID(" << fwd_id[m.Sender.Group.GID][m.MessageId()][i * 2 + 1] << ") MessageId(" << fwd_id[m.Sender.Group.GID][m.MessageId()][i * 2] << ")" << endl;
 				}
 			}
 		});
 	bot.On<TempMessage>([&](TempMessage m)
 		{
-			cout << "[临时]" << m.Sender.MemberName << "(" << m.Sender.QQ.ToInt64() << ")：" << m.MessageChain.GetPlainText() << endl
-				<< "\t该用户通过 " << m.Sender.Group.Name << "(" << m.Sender.Group.GID.ToInt64() << ") 向您的Bot发起临时会话" << endl;
+			ReceiveMessage(bot, m, fwd_id);
+			cout << endl << "\t" << "MessageId: " << m.MessageId() << " 该用户通过 " << m.Sender.Group.Name << "(" << m.Sender.Group.GID.ToInt64() << ") 向您的Bot发起临时会话" << endl;
 			if (strstr(m.MessageChain.GetPlainText().c_str(), "帮助"))
 			{
 				bot.SendMessage(m.Sender.Group.GID, m.Sender.QQ, MessageChain().Plain("Misaka10072's QQBot\nVer.23.1.18.dev\n项目地址：https://github.com/sjzyQwQ/Misaka10072s_QQBot\nMirai：https://github.com/mamoe/mirai\nMirai-CPP：https://github.com/cyanray/mirai-cpp"));
+			}
+		});
+	bot.On<GroupRecallEvent>([&](GroupRecallEvent e)
+		{
+			cout << "[" << e.Group.Name << "(" << e.Group.GID.ToInt64() << ")]" << string(e.ToJson().at("operator").at("memberName")) << "(" << e.AuthorQQ << ") 撤回了一条消息：" << bot.GetGroupMessageFromId(e.MessageId, e.Group.GID).MessageChain.GetPlainText() << endl;
+			for (int i = 0; i < fwd_id[e.Group.GID][e.MessageId].size() / 2; ++i)
+			{
+				bot.Recall(MessageId_t(fwd_id[e.Group.GID][e.MessageId][i * 2]), GID_t(fwd_id[e.Group.GID][e.MessageId][i * 2 + 1]));
+				fwd_id[e.Group.GID][e.MessageId].clear();
 			}
 		});
 	bot.On<BotMuteEvent>([&](BotMuteEvent e)
@@ -184,7 +202,10 @@ int main(int argc, char* argv[])
 	bot.On<MemberJoinEvent>([&](MemberJoinEvent e)
 		{
 			cout << "[新人入群]" << e.NewMember.MemberName << "(" << e.NewMember.QQ.ToInt64() << ") 加入了 " << e.NewMember.Group.Name << "(" << e.NewMember.Group.GID.ToInt64() << ")" << endl;
-			bot.SendMessage(e.NewMember.Group.GID, MessageChain().At(e.NewMember.QQ).Plain(" " + conf[8]));
+			if (conf[8] != "false")
+			{
+				bot.SendMessage(e.NewMember.Group.GID, MessageChain().At(e.NewMember.QQ).Plain(" " + conf[8]));
+			}
 		});
 	bot.On<MemberLeaveEventQuit>([&](MemberLeaveEventQuit e)
 		{
@@ -213,6 +234,21 @@ int main(int argc, char* argv[])
 				<< "Mirai：https://github.com/mamoe/mirai" << endl
 				<< "Mirai-CPP：https://github.com/cyanray/mirai-cpp" << endl;
 		}
+		else if (s == "bot")
+		{
+			cout << "Bot登录信息：" << bot.GetBotProfile().NickName << "(" << bot.GetBotQQ().ToInt64() << ")" << endl;
+		}
+		else if (s == "forward")
+		{
+			vector<Group_t>temp = bot.GetGroupList();
+			for (int i = 0; i < temp.size(); ++i)
+			{
+				for (int j = 0; j < fwd[temp[i].GID].size(); ++i)
+				{
+					cout << temp[i].GID.ToInt64() << "->" << fwd[temp[i].GID][j].ToInt64() << endl;
+				}
+			}
+		}
 		else if (s == "friend")
 		{
 			vector<Friend_t>temp = bot.GetFriendList();
@@ -232,10 +268,32 @@ int main(int argc, char* argv[])
 		else if (s == "help")
 		{
 			cout << "about\t输出关于信息" << endl
+				<< "bot\t输出Bot登录信息" << endl
+				<< "forward\t输出转发规则" << endl
 				<< "friend\t输出Bot好友列表" << endl
 				<< "group\t输出Bot群组列表" << endl
 				<< "help\t输出本信息" << endl
+				<< "recall\t撤回一条消息" << endl
 				<< "stop\t断开连接并关闭程序" << endl;
+		}
+		else if (s == "recall")
+		{
+			cout << "请按照 QQ(群)号 消息ID qq/gid 的格式输入（qq表示QQ号，gid表示QQ群号）" << endl;
+			int64_t temp[2];
+			string temp_s;
+			cin >> temp[0] >> temp[1] >> temp_s;
+			if (temp_s == "qq")
+			{
+				bot.Recall(MessageId_t(temp[1]),QQ_t(temp[0]));
+			}
+			else if (temp_s == "gid")
+			{
+				bot.Recall(MessageId_t(temp[1]), GID_t(temp[0]));
+			}
+			else
+			{
+				cout << "号码类型不明确" << endl;
+			}
 		}
 		else if (s == "stop")
 		{
