@@ -16,16 +16,16 @@ int main(int argc, char* argv[])
 	ifstream ifs;
 	MiraiBot bot;
 	SessionOptions opts;
-	ifs.open("C:\\ProgramData\\Misaka10072s_QQBot\\config.conf");
+	ifs.open("C:\\ProgramData\\Misaka10072s_QQBot\\bot.conf");
 	if (!ifs.good())
 	{
 		ofstream ofs;
 		cout << "配置文件不存在！" << endl;
-		ofs.open("C:\\ProgramData\\Misaka10072s_QQBot\\config.conf");
+		ofs.open("C:\\ProgramData\\Misaka10072s_QQBot\\bot.conf");
 		if (!ofs.good())
 		{
 			system("mkdir C:\\ProgramData\\Misaka10072s_QQBot");
-			ofs.open("C:\\ProgramData\\Misaka10072s_QQBot\\config.conf");
+			ofs.open("C:\\ProgramData\\Misaka10072s_QQBot\\bot.conf");
 		}
 		ofs << "# 与 mirai-api-http 通信的端口(Http 适配器)，默认值为 8080" << endl << "HttpPort=8080" << endl
 			<< "# 与 mirai-api-http 通信的端口(WebSocket 适配器)，默认值为 8080" << endl << "WebSocketPort=8080" << endl
@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
 			<< "# Hostname (WebScoket 适配器), 默认值为 localhost" << endl << "WebSocketHostname=localhost" << endl
 			<< "# 认证流程需要的密钥" << endl << "VerifyKey=";
 		ofs.close();
-		cout << "配置文件已生成在C:\\ProgramData\\Misaka10072s_QQBot\\config.conf，请编辑后重启Bot" << endl;
+		cout << "配置文件已生成在C:\\ProgramData\\Misaka10072s_QQBot\\bot.conf，请编辑后重启Bot" << endl;
 		return 1;
 	}
 	vector<string>conf;
@@ -115,7 +115,7 @@ int main(int argc, char* argv[])
 			cout << "[好友]" << m.Sender.NickName << "(" << m.Sender.QQ.ToInt64() << ")：" << m.MessageChain.GetPlainText() << endl;
 			if (strstr(m.MessageChain.GetPlainText().c_str(), "帮助"))
 			{
-				bot.SendMessage(m.Sender.QQ, MessageChain().Plain("Misaka10072's QQBot\n项目地址：https://github.com/sjzyQwQ/Misaka10072s_QQBot\nMirai：https://github.com/mamoe/mirai\nMirai-CPP：https://github.com/cyanray/mirai-cpp"));
+				bot.SendMessage(m.Sender.QQ, MessageChain().Plain("Misaka10072's QQBot\nVer.23.1.18.dev\n项目地址：https://github.com/sjzyQwQ/Misaka10072s_QQBot\nMirai：https://github.com/mamoe/mirai\nMirai-CPP：https://github.com/cyanray/mirai-cpp"));
 			}
 		});
 	bot.On<GroupMessage>([&](GroupMessage m)
@@ -125,7 +125,7 @@ int main(int argc, char* argv[])
 			{
 				if (strstr(m.MessageChain.GetPlainText().c_str(), "帮助"))
 				{
-					bot.SendMessage(m.Sender.Group.GID, MessageChain().Plain("Misaka10072's QQBot\n项目地址：https://github.com/sjzyQwQ/Misaka10072s_QQBot\nMirai：https://github.com/mamoe/mirai\nMirai-CPP：https://github.com/cyanray/mirai-cpp"), m.MessageId());
+					bot.SendMessage(m.Sender.Group.GID, MessageChain().Plain("Misaka10072's QQBot\nVer.23.1.18.dev\n项目地址：https://github.com/sjzyQwQ/Misaka10072s_QQBot\nMirai：https://github.com/mamoe/mirai\nMirai-CPP：https://github.com/cyanray/mirai-cpp"), m.MessageId());
 				}
 			}
 			if (fwd[m.Sender.Group.GID].size())
@@ -142,12 +142,12 @@ int main(int argc, char* argv[])
 				<< "\t该用户通过 " << m.Sender.Group.Name << "(" << m.Sender.Group.GID.ToInt64() << ") 向您的Bot发起临时会话" << endl;
 			if (strstr(m.MessageChain.GetPlainText().c_str(), "帮助"))
 			{
-				bot.SendMessage(m.Sender.Group.GID, m.Sender.QQ, MessageChain().Plain("Misaka10072's QQBot\n项目地址：https://github.com/sjzyQwQ/Misaka10072s_QQBot\nMirai：https://github.com/mamoe/mirai\nMirai-CPP：https://github.com/cyanray/mirai-cpp"));
+				bot.SendMessage(m.Sender.Group.GID, m.Sender.QQ, MessageChain().Plain("Misaka10072's QQBot\nVer.23.1.18.dev\n项目地址：https://github.com/sjzyQwQ/Misaka10072s_QQBot\nMirai：https://github.com/mamoe/mirai\nMirai-CPP：https://github.com/cyanray/mirai-cpp"));
 			}
 		});
 	bot.On<BotMuteEvent>([&](BotMuteEvent e)
 		{
-			cout << "[被禁言]您的Bot在 " << e.Operator.Group.Name << "(" << e.Operator.Group.GID.ToInt64() << ")" << " 被 " << e.Operator.MemberName << "(" << e.Operator.QQ.ToInt64() << ") 禁言";
+			cout << "[被禁言]您的Bot在 " << e.Operator.Group.Name << "(" << e.Operator.Group.GID.ToInt64() << ") 被 " << e.Operator.MemberName << "(" << e.Operator.QQ.ToInt64() << ") 禁言";
 			if (e.DurationSeconds < 3600)
 			{
 				cout << e.DurationSeconds / 60 << "分钟" << endl;
@@ -163,11 +163,11 @@ int main(int argc, char* argv[])
 		});
 	bot.On<BotUnmuteEvent>([&](BotUnmuteEvent e)
 		{
-			cout << "[被解除禁言]您的Bot在 " << e.Operator.Group.Name << "(" << e.Operator.Group.GID.ToInt64() << ")" << " 被 " << e.Operator.MemberName << "(" << e.Operator.QQ.ToInt64() << ") 解除禁言" << endl;
+			cout << "[被解除禁言]您的Bot在 " << e.Operator.Group.Name << "(" << e.Operator.Group.GID.ToInt64() << ") 被 " << e.Operator.MemberName << "(" << e.Operator.QQ.ToInt64() << ") 解除禁言" << endl;
 		});
 	bot.On<GroupNameChangeEvent>([&](GroupNameChangeEvent e)
 		{
-			cout << "[群名称改变]群聊 " << e.OriginName << "(" << e.Group.GID.ToInt64() <<")"<< " 更名为 " << e.CurrentName << endl;
+			cout << "[群名称改变]群聊 " << e.OriginName << "(" << e.Group.GID.ToInt64() <<") 更名为 " << e.CurrentName << endl;
 		});
 	bot.On<GroupMuteAllEvent>([&](GroupMuteAllEvent e)
 		{
@@ -179,6 +179,19 @@ int main(int argc, char* argv[])
 			else
 			{
 				cout << e.Group.Name << "(" << e.Group.GID.ToInt64() << ") 关闭了全员禁言" << endl;
+			}
+		});
+	bot.On<MemberJoinEvent>([&](MemberJoinEvent e)
+		{
+			cout << "[新人入群]" << e.NewMember.MemberName << "(" << e.NewMember.QQ.ToInt64() << ") 加入了 " << e.NewMember.Group.Name << "(" << e.NewMember.Group.GID.ToInt64() << ")" << endl;
+			bot.SendMessage(e.NewMember.Group.GID, MessageChain().At(e.NewMember.QQ).Plain(" " + conf[8]));
+		});
+	bot.On<MemberLeaveEventQuit>([&](MemberLeaveEventQuit e)
+		{
+			cout << "[成员离开]" << e.Member.Group.Name << "(" << e.Member.Group.GID.ToInt64() << ") 的 " << e.Member.MemberName << "(" << e.Member.QQ.ToInt64() << ") 离开了" << endl;
+			if (conf[9] == "true")
+			{
+				bot.SendMessage(e.Member.Group.GID, MessageChain().Plain(e.Member.MemberName + " 离开了我们"));
 			}
 		});
 	bot.On<NudgeEvent>([&](NudgeEvent e)
@@ -195,13 +208,32 @@ int main(int argc, char* argv[])
 		if (s == "about")
 		{
 			cout << "Misaka10072's QQBot" << endl
+				<< "Ver.23.1.18.dev" << endl
 				<< "项目地址：https://github.com/sjzyQwQ/Misaka10072s_QQBot" << endl
 				<< "Mirai：https://github.com/mamoe/mirai" << endl
 				<< "Mirai-CPP：https://github.com/cyanray/mirai-cpp" << endl;
 		}
+		else if (s == "friend")
+		{
+			vector<Friend_t>temp = bot.GetFriendList();
+			for (int i = 0; i < temp.size(); ++i)
+			{
+				cout << temp[i].NickName << "(" << temp[i].QQ.ToInt64() << ")" << endl;
+			}
+		}
+		else if (s == "group")
+		{
+			vector<Group_t>temp = bot.GetGroupList();
+			for (int i = 0; i < temp.size(); ++i)
+			{
+				cout << temp[i].Name << "(" << temp[i].GID.ToInt64() << ")" << endl;
+			}
+		}
 		else if (s == "help")
 		{
 			cout << "about\t输出关于信息" << endl
+				<< "friend\t输出Bot好友列表" << endl
+				<< "group\t输出Bot群组列表" << endl
 				<< "help\t输出本信息" << endl
 				<< "stop\t断开连接并关闭程序" << endl;
 		}
