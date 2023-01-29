@@ -148,7 +148,7 @@ int main(int argc, char *argv[])
 	                    });
 	bot.On<GroupRecallEvent>([&](GroupRecallEvent e)
 	                         {
-		                         cout << "[" << e.Group.Name << "(" << e.Group.GID.ToInt64() << ")]" << string(e.ToJson().at("operator").at("memberName")) << "(" << e.AuthorQQ << ") 撤回了一条消息：" << bot.GetGroupMessageFromId(e.MessageId, e.Group.GID).MessageChain.GetPlainText() << endl;
+		                         cout << "[" << e.Group.Name << "(" << e.Group.GID.ToInt64() << ")]" << string(e.ToJson()["operator"]["memberName"]) << "(" << e.AuthorQQ << ") 撤回了一条消息：" << bot.GetGroupMessageFromId(e.MessageId, e.Group.GID).MessageChain.GetPlainText() << endl;
 		                         for (int i = 0; i < fwd_id[e.Group.GID][e.MessageId].size() / 2; ++i)
 		                         {
 			                         bot.Recall(MessageId_t(fwd_id[e.Group.GID][e.MessageId][i * 2]), GID_t(fwd_id[e.Group.GID][e.MessageId][i * 2 + 1]));
@@ -218,14 +218,8 @@ int main(int argc, char *argv[])
 	{
 		string s;
 		cin >> s;
-		if (s == "about")
-		{
-			cout << help << endl;
-		}
-		else if (s == "bot")
-		{
-			cout << "Bot登录信息：" << bot.GetBotProfile().NickName << "(" << bot.GetBotQQ().ToInt64() << ")" << endl;
-		}
+		if (s == "about")cout << help << endl;
+		else if (s == "bot")cout << "Bot登录信息：" << bot.GetBotProfile().NickName << "(" << bot.GetBotQQ().ToInt64() << ")" << endl;
 		else if (s == "forward")
 		{
 			vector<Group_t> temp = bot.GetGroupList();
@@ -262,6 +256,7 @@ int main(int argc, char *argv[])
 			     << "group\t输出Bot群组列表" << endl
 			     << "help\t输出本信息" << endl
 			     << "recall\t撤回一条消息" << endl
+			     << "send\t发送一条消息" << endl
 			     << "stop\t断开连接并关闭程序" << endl;
 		}
 		else if (s == "recall")
@@ -272,25 +267,34 @@ int main(int argc, char *argv[])
 			cin >> temp[0] >> temp[1] >> temp_s;
 			if (temp_s == "qq")
 			{
-				bot.Recall(MessageId_t(temp[1]), QQ_t(temp[0]));
+				try
+				{
+					bot.Recall(MessageId_t(temp[1]), QQ_t(temp[0]));
+				}
+				catch (const exception &ex)
+				{
+					cout << ex.what() << endl;
+				}
 			}
 			else if (temp_s == "gid")
 			{
-				bot.Recall(MessageId_t(temp[1]), GID_t(temp[0]));
+				try
+				{
+					bot.Recall(MessageId_t(temp[1]), GID_t(temp[0]));
+				}
+				catch (const exception &ex)
+				{
+					cout << ex.what() << endl;
+				}
 			}
 			else
 			{
 				cout << "号码类型不明确" << endl;
 			}
 		}
-		else if (s == "stop")
-		{
-			break;
-		}
-		else
-		{
-			cout << "未知的命令" << endl;
-		}
+		else if (s == "send")SendMessage(bot);
+		else if (s == "stop")break;
+		else cout << "未知的命令" << endl;
 	}
 	bot.Disconnect();
 	return 0;
